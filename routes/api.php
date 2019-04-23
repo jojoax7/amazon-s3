@@ -18,3 +18,4 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 });
 Route::post('/uploadFile','PagesController@uploadFile');
 Route::post('/getPresignedUrl','PagesController@getPresignedUrl');
+Route::get('/move','PagesController@move');

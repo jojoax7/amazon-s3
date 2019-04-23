@@ -6,68 +6,75 @@ use Illuminate\Http\Request;
 use Illuminate\Http\File;
 use Illuminate\Support\Facades\Storage;
 use Aws\S3\S3Client;
+use Illuminate\Support\Str;
 class PagesController extends Controller
 {
     public function getPresignedUrl(Request $request){
+        //get extension file
         $match =preg_split("/[.]/",$request->fileName);
         $extension = '.'.$match[count($match)-1];
-        // dd($extension);
-        $s = strtoupper(md5(uniqid(rand(),true))); 
-        $guidText = 
-            substr($s,0,8) . '-' . 
-            substr($s,8,4) . '-' . 
-            substr($s,12,4). '-' . 
-            substr($s,16,4). '-' . 
-            substr($s,20);
-            // dd(env('AWS_ACCESS_KEY_ID'));
+        //get random name
+        $hashName = Str::random(40).$extension;
+        // how to use params:
+        // https://docs.aws.amazon.com/aws-sdk-php/v3/api/class-Aws.S3.PostObjectV4.html
+        //set connection
         $s3Client = new S3Client([
             'region'=>env('AWS_DEFAULT_REGION'),
-            'version'=>'2006-03-01',
+            'version'=>'latest',
             'credentials'=>[
                 'key'    => env('AWS_ACCESS_KEY_ID'),
                 'secret' => env('AWS_SECRET_ACCESS_KEY')
             ]
         ]);
-        $formInputs = ['acl' => 'public-read'];
-        $options = [
-            ['acl' => 'public-read'],
-            ['bucket' => env('AWS_BUCKET')],
-            ['starts-with', '$key', 'tmp/'],
-            ["starts-with", '$Content-Type', "image/"],
+        //get bucket name
+        $bucket=  env('AWS_BUCKET');
+        // Associative array of form input fields
+        $formInputs = [
+            'acl' => 'public-read',//file permissions
+            'key'=>$hashName//set new random name
         ];
-        $expires = '+2 hours';
+        // Policy condition options
+        $policy = [
+            ['acl' => 'public-read'],//match file permissions
+            ['bucket' =>$bucket],
+            ['starts-with', '$key', 'tmp/'.$hashName],//match with directory and name
+            // ["starts-with", '$Content-Type', "image/"],//match tipe of media
+            ['success_action_status'=>'201']
+            
+        ];
+        // link time of expiration 
+        $expires = '+1 hours';
         $postObject = new \Aws\S3\PostObjectV4(
             $s3Client,
-            env('AWS_BUCKET'),
+            $bucket,
             $formInputs,
-            $options,
+            $policy,
             $expires
         );
+        //get form attributes
         $formAttributes = $postObject->getFormAttributes();
+        //get form inputs
         $formInputs = $postObject->getFormInputs();
-        dd($formInputs);
-        // $cmd = $s3Client->getCommand('GetObject',[
-        //     'Bucket' => ,
-        //     'Key' => 'tmp/hsvO8U41nd46TAEqHaBMFXxirihuBwW9faFKaVWA.jpeg',
-        //     'body'=>'Hello World!'
-        // ]);
-        // $signedUrl = $s3Client->createPresignedRequest($cmd,'+30 minutes');
-        // $response = (object)[];
-        // // dd($signedUrl);
-        // $response->url = (string)$signedUrl->getUri();
-        // // $response->key = $guidText;
-        // return response()->json($response);
+        //merge object
+        $getPresignedURL = array_merge($formAttributes,$formInputs);
+       
+        return response()->json($getPresignedURL);
     }
+
     public function uploadFile(Request $request){
+        //save files with use streams on php
         $files=[];
         foreach ($request->all() as $key => $item) {
-            dd($request->{$key});
             if($request->hasFile($key)){
                $files[]= Storage::disk('s3')->putFile('tmp', $request->{$key}, 'public');
-            //    $files[]= $request->file($key)->store('tmp','s3');
             }
         return $files;
         
         }
+    }
+    public function move(){//example
+        //initial file directory - final file directory
+        Storage::disk('s3')->move('tmp/004BD1B0-6D8D-3F2D-18DC-9743B46FED36.jpg','system/c1912/t2809/004BD1B0-6D8D-3F2D-18DC-9743B46FED36.jpg');
+        return 'Success';
     }
 }
