@@ -11,10 +11,10 @@ class PagesController extends Controller
 {
     public function getPresignedUrl(Request $request){
         //get extension file
-        $match =preg_split("/[.]/",$request->fileName);
-        $extension = '.'.$match[count($match)-1];
+        // $match =preg_split("/[.]/",$request->fileName);
+        // $extension = '.'.$match[count($match)-1];
         //get random name
-        $hashName = Str::random(40).$extension;
+        // $hashName = Str::random(40).$extension;
         // how to use params:
         // https://docs.aws.amazon.com/aws-sdk-php/v3/api/class-Aws.S3.PostObjectV4.html
         //set connection
@@ -31,13 +31,13 @@ class PagesController extends Controller
         // Associative array of form input fields
         $formInputs = [
             'acl' => 'public-read',//file permissions
-            'key'=>$hashName//set new random name
+            'key' => 'tmp/${filename}'//set new random name
         ];
         // Policy condition options
         $policy = [
             ['acl' => 'public-read'],//match file permissions
             ['bucket' =>$bucket],
-            ['starts-with', '$key', 'tmp/'.$hashName],//match with directory and name
+            ['starts-with', '$key', 'tmp/'],//match with directory and name
             // ["starts-with", '$Content-Type', "image/"],//match tipe of media
             ['success_action_status'=>'201']
             
